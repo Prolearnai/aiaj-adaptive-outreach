@@ -1,0 +1,50 @@
+name: AIAJ outreach sender
+
+# Weekdays: starts 14:50 UTC (6:50 AM PST / 7:50 AM PDT). The worker waits until 8:00 AM Pacific,
+# sends ~125/hour at irregular times until noon Pacific, then exits. GitHub may start scheduled runs late.
+on:
+  schedule:
+    - cron: "50 14 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "run = morning send, test = one email to test_to, check-inbox = replies/bounces only"
+        default: "test"
+        type: choice
+        options: [test, check-inbox, run]
+      test_to:
+        description: "Your own address (for mode=test)"
+        default: ""
+
+concurrency:
+  group: aiaj-outreach
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Send
+        env:
+          MODE: ${{ inputs.mode || 'run' }}
+          TEST_TO: ${{ inputs.test_to }}
+          AIAJ_WEBAPP_URL: ${{ secrets.AIAJ_WEBAPP_URL }}
+          AIAJ_KEY: ${{ secrets.AIAJ_KEY }}
+          SMTP_HOST: mail.privateemail.com
+          SMTP_PORT: "465"
+          SMTP_SECURITY: ssl
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_USER }}
+          AIAJ_HOURLY: ${{ vars.AIAJ_HOURLY || '125' }}
+          AIAJ_START_HOUR: ${{ vars.AIAJ_START_HOUR || '8' }}
+          AIAJ_STOP_HOUR: ${{ vars.AIAJ_STOP_HOUR || '12' }}
+        run: python outreach_worker.py "$MODE"

@@ -1,3 +1,38 @@
+# AIAJ Adaptive Outreach
+
+**Current setup: `outreach_worker.py` on GitHub Actions + Namecheap SMTP + the AIAJ Google Sheet.**
+(The older `queue.py` SQLite prototype is kept below for reference.)
+
+- **Sends from** outreach@aiaj.solutions **through Namecheap's mail server** (`mail.privateemail.com:465`, SSL).
+- **When:** weekdays, 8:00 AM to noon Pacific, about **125 an hour** at irregular, human-looking times (up to 500 a day).
+- **What:** the lead list, email templates, follow-ups (day 3 and day 7), daily cap and on/off switch live in the
+  AIAJ Clients Google Sheet and its Apps Script. **This repo holds no lead data**, so it can stay public, which
+  gives you unlimited free GitHub Actions minutes. Logs show only anonymous tags, never addresses.
+- **Inbox:** each morning and every hour it reads the Namecheap inbox, then marks replies, bounces and
+  "unsubscribe / no thanks" in the sheet, and stops emailing those leads. Sent emails are copied into your Sent folder.
+- **Brakes:** it stops for the day after repeated throttling. It turns outreach **off** and alerts you on a login
+  failure, a spam/policy block, or a hard-bounce rate above 10%.
+
+## One-time setup
+
+1. **Settings → Secrets and variables → Actions → New repository secret** (you type these; never put them in code):
+   - `SMTP_USER`: `outreach@aiaj.solutions`
+   - `SMTP_PASSWORD`: that mailbox's password
+   - `AIAJ_WEBAPP_URL`: the Apps Script web app URL (ends in `/exec`)
+   - `AIAJ_KEY`: the WEBHOOK_SECRET (Apps Script → run `showWebhookLinks`; it's the `key=` value)
+2. **Actions → AIAJ outreach sender → Run workflow**, with mode `test` and `test_to` set to your own address.
+   Check that the email arrives (inbox, not spam).
+3. In the Apps Script editor, run `startOutreach()`. The schedule then sends every weekday morning.
+
+**Stop any time:** run `stopOutreach()` in Apps Script, or disable the workflow under Actions.
+Optional repository **variables**: `AIAJ_HOURLY` (default 125), `AIAJ_START_HOUR` (8), `AIAJ_STOP_HOUR` (12).
+
+> Namecheap's Acceptable Use Policy prohibits unsolicited bulk email, so high volume risks a mailbox
+> suspension. The brakes above limit the damage. Watch the daily summary and lower `AIAJ_HOURLY` if bounces
+> or complaints rise.
+
+---
+
 # AIAJ Adaptive Outbound Queue (prototype)
 
 A local, dependency-free Python/SQLite outbound queue with suppression, message deduplication, one-at-a-time SMTP submission, per-domain pacing, exponential backoff for temporary SMTP errors, permanent-failure suppression, event audit, and an account-level hourly cap. **SMTP acceptance is not proof of final inbox delivery.**
