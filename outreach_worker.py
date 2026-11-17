@@ -246,25 +246,43 @@ def report_inbox():
 
 
 class SentFolder:
-    """Best-effort copy of each sent email into the mailbox's Sent folder, so webmail shows the conversation."""
+    """Best-effort copy of each sent email into the mailbox's Sent folder, so webmail shows the conversation.
+    If the connection drops it logs in again and retries; it only gives up after 5 failures in a row."""
 
     def __init__(self):
         self.im = None
         self.box = None
+        self.fails = 0
         self.broken = not SAVE_SENT
+
+    def _open(self):
+        self.im = imap_login()
+        if not self.box:
+            typ, boxes = self.im.list()
+            names = [b.decode().split(' "/" ')[-1].strip('"') for b in boxes or []]
+            self.box = next((n for n in names if n.lower() in ("sent", "sent items", "inbox.sent", "sent messages")), "Sent")
 
     def save(self, msg):
         if self.broken:
             return
-        try:
-            if not self.im:
-                self.im = imap_login()
-                typ, boxes = self.im.list()
-                names = [b.decode().split(' "/" ')[-1].strip('"') for b in boxes or []]
-                self.box = next((n for n in names if n.lower() in ("sent", "sent items", "inbox.sent", "sent messages")), "Sent")
-            self.im.append(self.box, "\\Seen", imaplib.Time2Internaldate(time.time()), msg.as_bytes())
-        except Exception as e:
-            log(f"(sent-copy disabled: {e})")
+        for attempt in range(2):
+            try:
+                if not self.im:
+                    self._open()
+                self.im.append(self.box, "\\Seen", imaplib.Time2Internaldate(time.time()), msg.as_bytes())
+                self.fails = 0
+                return
+            except Exception as e:
+                err = e
+                try:
+                    self.im.logout()
+                except Exception:
+                    pass
+                self.im = None          # reconnect on the next try
+        self.fails += 1
+        log(f"(sent-copy failed: {err})")
+        if self.fails >= 5:
+            log("(sent-copy disabled for this run after 5 failures in a row)")
             self.broken = True
 
     def close(self):
