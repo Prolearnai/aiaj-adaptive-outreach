@@ -15,6 +15,12 @@ on:
       test_to:
         description: "Your own address (for mode=test)"
         default: ""
+      start_hour:
+        description: "Optional one-off start hour, Pacific (e.g. 18.5). Blank = 8"
+        default: ""
+      stop_hour:
+        description: "Optional one-off stop hour, Pacific (e.g. 21). Blank = 12"
+        default: ""
 
 concurrency:
   group: aiaj-outreach
@@ -45,6 +51,6 @@ jobs:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           SMTP_FROM: ${{ secrets.SMTP_USER }}
           AIAJ_HOURLY: ${{ vars.AIAJ_HOURLY || '125' }}
-          AIAJ_START_HOUR: ${{ vars.AIAJ_START_HOUR || '8' }}
-          AIAJ_STOP_HOUR: ${{ vars.AIAJ_STOP_HOUR || '12' }}
+          AIAJ_START_HOUR: ${{ inputs.start_hour || vars.AIAJ_START_HOUR || '8' }}
+          AIAJ_STOP_HOUR: ${{ inputs.stop_hour || vars.AIAJ_STOP_HOUR || '12' }}
         run: python outreach_worker.py "$MODE"
