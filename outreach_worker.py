@@ -424,6 +424,23 @@ def test():
     log("test email accepted by the SMTP server")
 
 
+def reply():
+    """One-off message from the outreach mailbox (workflow inputs reply_to / reply_subject / reply_body),
+    then an inbox check so unsubscribes and replies are marked in the sheet right away."""
+    to, subj, body = env("REPLY_TO", ""), env("REPLY_SUBJECT", ""), env("REPLY_BODY", "").replace("\\n", "\n")
+    if not (to and subj and body):
+        raise SystemExit("reply mode needs reply_to, reply_subject and reply_body")
+    item = {"email": to, "subject": subj, "body": body, "step": 0}
+    msg = build(item, env("SMTP_FROM", SMTP_USER or "outreach@aiaj.solutions"), "Alaric Scott | AIAJ Solutions")
+    s = Sender()
+    s.connect()
+    s.send(msg)
+    s.close()
+    SentFolder().save(msg)
+    log(f"reply sent to {tag(to)}")
+    report_inbox()
+
+
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "run"
     if mode == "run":
@@ -432,5 +449,7 @@ if __name__ == "__main__":
         test()
     elif mode == "check-inbox":
         report_inbox()
+    elif mode == "reply":
+        reply()
     else:
         raise SystemExit(__doc__)

@@ -15,9 +15,18 @@ on:
         description: "run = morning send, test = one email to test_to, check-inbox = replies/bounces only"
         default: "test"
         type: choice
-        options: [test, check-inbox, run]
+        options: [test, check-inbox, run, reply]
       test_to:
         description: "Your own address (for mode=test)"
+        default: ""
+      reply_to:
+        description: "mode=reply: address to send one message to"
+        default: ""
+      reply_subject:
+        description: "mode=reply: subject"
+        default: ""
+      reply_body:
+        description: "mode=reply: message text (use \\n for new lines)"
         default: ""
       start_hour:
         description: "Optional one-off start hour, Pacific (e.g. 18.5). Blank = 8"
@@ -27,7 +36,7 @@ on:
         default: ""
 
 concurrency:
-  group: aiaj-outreach
+  group: aiaj-outreach-${{ inputs.mode == 'reply' && 'reply' || 'send' }}
   cancel-in-progress: false
 
 permissions:
@@ -46,6 +55,9 @@ jobs:
         env:
           MODE: ${{ inputs.mode || 'run' }}
           TEST_TO: ${{ inputs.test_to }}
+          REPLY_TO: ${{ inputs.reply_to }}
+          REPLY_SUBJECT: ${{ inputs.reply_subject }}
+          REPLY_BODY: ${{ inputs.reply_body }}
           AIAJ_WEBAPP_URL: ${{ secrets.AIAJ_WEBAPP_URL }}
           AIAJ_KEY: ${{ secrets.AIAJ_KEY }}
           SMTP_HOST: mail.privateemail.com
