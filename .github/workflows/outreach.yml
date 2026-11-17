@@ -1,10 +1,14 @@
 name: AIAJ outreach sender
 
 # Weekdays: starts 14:50 UTC (6:50 AM PST / 7:50 AM PDT). The worker waits until 8:00 AM Pacific,
-# sends ~125/hour at irregular times until noon Pacific, then exits. GitHub may start scheduled runs late.
+# sends ~18/hour at irregular times until noon Pacific, then exits. GitHub may start scheduled runs late.
 on:
   schedule:
     - cron: "50 14 * * 1-5"
+    # Backups: GitHub sometimes skips a scheduled run. A backup that starts while another run is going
+    # waits its turn and exits at noon; leads are reserved in the sheet, so nobody gets two emails.
+    - cron: "17 16 * * 1-5"
+    - cron: "43 17 * * 1-5"
   workflow_dispatch:
     inputs:
       mode:
