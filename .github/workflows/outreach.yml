@@ -50,7 +50,7 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           SMTP_FROM: ${{ secrets.SMTP_USER }}
-          AIAJ_HOURLY: ${{ vars.AIAJ_HOURLY || '125' }}
+          AIAJ_HOURLY: ${{ vars.AIAJ_HOURLY || '18' }}
           AIAJ_START_HOUR: ${{ inputs.start_hour || vars.AIAJ_START_HOUR || '8' }}
           AIAJ_STOP_HOUR: ${{ inputs.stop_hour || vars.AIAJ_STOP_HOUR || '12' }}
         run: python outreach_worker.py "$MODE"

@@ -4,7 +4,7 @@
 (The older `queue.py` SQLite prototype is kept below for reference.)
 
 - **Sends from** outreach@aiaj.solutions **through Namecheap's mail server** (`mail.privateemail.com:465`, SSL).
-- **When:** weekdays, 8:00 AM to noon Pacific, about **125 an hour** at irregular, human-looking times (up to 500 a day).
+- **When:** weekdays, 8:00 AM to noon Pacific, about **18 an hour (Namecheap trial cap is 20)** at irregular, human-looking times (up to 500 a day).
 - **What:** the lead list, email templates, follow-ups (day 3 and day 7), daily cap and on/off switch live in the
   AIAJ Clients Google Sheet and its Apps Script. **This repo holds no lead data**, so it can stay public, which
   gives you unlimited free GitHub Actions minutes. Logs show only anonymous tags, never addresses.

@@ -47,7 +47,7 @@ SMTP_USER = env("SMTP_USER", "")
 SMTP_PASSWORD = env("SMTP_PASSWORD", "")
 IMAP_HOST = env("IMAP_HOST", "mail.privateemail.com")
 IMAP_PORT = int(env("IMAP_PORT", "993"))
-HOURLY = int(env("AIAJ_HOURLY", "125"))
+HOURLY = int(env("AIAJ_HOURLY", "18"))
 START_HOUR = float(env("AIAJ_START_HOUR", "8"))
 STOP_HOUR = float(env("AIAJ_STOP_HOUR", "12"))
 MIN_GAP = float(env("AIAJ_MIN_GAP", "6"))             # seconds between any two sends, at least
@@ -160,8 +160,15 @@ def build(item, from_addr, from_name):
     return m
 
 
+QUOTA_WORDS = re.compile(r"too many messages from sender|in last 60 minutes|sending limit|quota", re.I)
+
+
 def classify(e):
-    """-> (kind, code, text); kind in ok|permanent|temporary|account"""
+    """-> (kind, code, text); kind in ok|permanent|temporary|account|quota"""
+    text0 = str(getattr(e, "smtp_error", b"") or b"")
+    if QUOTA_WORDS.search(text0):
+        t = e.smtp_error.decode("utf-8", "replace") if isinstance(e.smtp_error, bytes) else str(e.smtp_error)
+        return "quota", getattr(e, "smtp_code", 0), t
     if isinstance(e, smtplib.SMTPAuthenticationError):
         return "account", e.smtp_code, "login failed - check SMTP_USER / SMTP_PASSWORD"
     if isinstance(e, smtplib.SMTPRecipientsRefused):
@@ -314,7 +321,7 @@ def run():
 
     sender, sent_box = Sender(), SentFolder()
     queue, meta = [], {}
-    sent = perm = temp_streak = 0
+    sent = perm = temp_streak = quota_waits = 0
     last_inbox = slots[0] if slots else now()
     try:
         for slot in slots:
@@ -347,6 +354,20 @@ def run():
             except Exception as e:
                 kind, code, text = classify(e)
                 log(f"send to {tag(item['email'])} failed: {kind} {code}")
+                if kind == "quota":
+                    quota_waits += 1
+                    sender.close()
+                    if quota_waits > 3:
+                        api("outreach-result", {"lead_id": item["lead_id"], "ok": False, "permanent": False, "code": code, "error": "hourly limit"})
+                        for q in queue:
+                            api("outreach-result", {"lead_id": q["lead_id"], "ok": False, "permanent": False, "code": 0, "error": "hourly limit"})
+                        queue = []
+                        log("Namecheap hourly limit hit repeatedly - done for today")
+                        break
+                    queue.insert(0, item)
+                    log("Namecheap hourly limit reached - pausing 20 min")
+                    sleep(1200)
+                    continue
                 if kind == "account":
                     api("outreach-result", {"lead_id": item["lead_id"], "ok": False, "permanent": False, "code": code, "error": text[:150]})
                     for q in queue:
@@ -372,7 +393,7 @@ def run():
                     stop_everything(f"hard-bounce rate {perm}/{sent + perm} is over 10% - clean the lead list before resuming")
                     return 3
                 continue
-            temp_streak = 0
+            temp_streak = quota_waits = 0
             sent += 1
             api("outreach-result", {"lead_id": item["lead_id"], "ok": True})
             sent_box.save(msg)
