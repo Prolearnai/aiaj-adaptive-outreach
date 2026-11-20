@@ -1,0 +1,1 @@
+export default (req, res) => res.json({ ok: true, ledger: 'supabase', version: '4.1.0-postal-stage', postalMode: process.env.POSTAL_TRANSPORT_MODE || 'disabled' });
