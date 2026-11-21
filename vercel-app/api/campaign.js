@@ -33,9 +33,8 @@ function postalPreflight({ body, items, mode }) {
     if (item.workspace != null && item.workspace !== body.workspace) return 'workspace_mismatch';
     if (!item.subject || !(item.text || item.body)) return 'invalid_message';
     if (mode === 'test' && !recipient.endsWith('@example.invalid')) return 'postal_test_recipient_required';
-    // Live traffic cannot rely only on the user's arbitrary email fields.
-    // Before enabling live mode, the verified-contact database gate must be implemented.
-    if (mode === 'live') return 'postal_live_verification_gate_pending';
+    // Live contact verification is enforced by the Supabase verification RPC
+    // before the campaign ledger claim; never trust item-supplied verification.
   }
   if (!process.env.POSTAL_BASE_URL) return 'postal_base_url_missing';
   const credential = { academy: 'POSTAL_API_KEY_ACADEMY', solutions: 'POSTAL_API_KEY_SOLUTIONS', radio: 'POSTAL_API_KEY_RADIO' }[body.workspace];
@@ -78,6 +77,19 @@ export default async function handler(req, res) {
   for (const item of items) {
     const recipient = String(item?.recipient || item?.email || item?.to || '').trim().toLowerCase();
     const text = item?.text || item?.body;
+    if (postal && mode === 'live') {
+      let authorized;
+      try {
+        authorized = await ledger('verify', { campaignId, email: recipient });
+      } catch {
+        results.push({ recipient, status: 'held_verification_unavailable' });
+        continue;
+      }
+      if (authorized.verified !== true) {
+        results.push({ recipient, status: 'held_unverified' });
+        continue;
+      }
+    }
     try {
       const claimed = await ledger('claim', { campaignId, email: recipient, subject: item?.subject, text });
       if (claimed.status !== 'reserved') {
